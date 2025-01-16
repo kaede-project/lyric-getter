@@ -300,6 +300,21 @@
       ]
     },
     {
+      "packageName": "com.folltoshe.music",
+      "name": "Kaede Music",
+      "rules": [
+        {
+          "startVersionCode": 100,
+          "endVersionCode": 2147483647,
+          "excludeVersions": [],
+          "apiVersion": 6,
+          "useApi": true,
+          "getLyricType": 0,
+          "remarks": "在设置中将歌词模式切换为墨状态栏歌词"
+        }
+      ]
+    },
+    {
       "packageName": "com.luna.music",
       "name": "汽水音乐",
       "rules": [
