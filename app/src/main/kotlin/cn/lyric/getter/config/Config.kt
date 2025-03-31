@@ -3,6 +3,7 @@ package cn.lyric.getter.config
 import cn.xiaowine.dsp.delegate.Delegate.serialLazy
 
 class Config {
+    var alreadyShowWarning: Boolean by serialLazy(false)
     var hideDesktopIcons: Boolean by serialLazy(false)
     var showAllRules: Boolean by serialLazy(false)
     var outputRepeatedLyrics: Boolean by serialLazy(false)
@@ -12,7 +13,7 @@ class Config {
     var saltUseFlyme: Boolean by serialLazy(false)
     var updateTime: Long by serialLazy(0L)
     var showTitle: Boolean by serialLazy(false)
-    var fuckwyysb163: Boolean by serialLazy(false)
-    var fuckfuckwyysb163: Boolean by serialLazy(false)
+    var fuckWyy: Boolean by serialLazy(false)
+    var fuckWyy2: Boolean by serialLazy(false)
 }
         

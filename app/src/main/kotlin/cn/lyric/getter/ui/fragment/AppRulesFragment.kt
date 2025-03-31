@@ -2,8 +2,11 @@
 
 package cn.lyric.getter.ui.fragment
 
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -42,19 +45,27 @@ class AppRulesFragment : Fragment() {
     private val packageManager: PackageManager by lazy { requireContext().packageManager }
     private var _binding: FragmentAppRulesBinding? = null
     private val binding get() = _binding!!
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         _binding = FragmentAppRulesBinding.inflate(inflater, container, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        MaterialAlertDialogBuilder(requireContext()).apply {
-            setTitle(R.string.remarks)
-            setMessage(R.string.rules_are_only_for_viewing_supported_versions)
-            setNegativeButton(R.string.ok) { _, _ -> }
-            setCancelable(false)
-            show()
+        if (!config.alreadyShowWarning) {
+            MaterialAlertDialogBuilder(requireContext()).apply {
+                setTitle(R.string.remarks)
+                setMessage(R.string.rules_are_only_for_viewing_supported_versions)
+                setNegativeButton(R.string.ok) { _, _ ->
+                    config.alreadyShowWarning = true
+                }
+                setCancelable(false)
+                show()
+            }
         }
         appAdapter = AppRulesAdapter().apply {
             setOnItemClickListener(object : AppRulesAdapter.OnItemClickListener {
@@ -73,8 +84,22 @@ class AppRulesFragment : Fragment() {
                     } else {
                         MaterialAlertDialogBuilder(requireContext()).apply {
                             setTitle(R.string.select_the_mode_you_want_to_view)
-                            setItems(Array(appRule.rules.size) { getString(R.string.mode_num, (it + 1).toString()) }) { _, which ->
-                                showRuleDialog(appRule.rules[which], "${appRule.name}: ${getString(R.string.mode_num, (which + 1).toString())}", versionCode)
+                            setItems(Array(appRule.rules.size) {
+                                getString(
+                                    R.string.mode_num,
+                                    (it + 1).toString()
+                                )
+                            }) { _, which ->
+                                showRuleDialog(
+                                    appRule.rules[which],
+                                    "${appRule.name}: ${
+                                        getString(
+                                            R.string.mode_num,
+                                            (which + 1).toString()
+                                        )
+                                    }",
+                                    versionCode
+                                )
                             }
                             setNegativeButton(R.string.cancel, null)
                             show()
@@ -120,13 +145,28 @@ class AppRulesFragment : Fragment() {
     }
 
     fun showRuleDialog(rule: Rule, title: String, versionCode: Int) {
-        val items = arrayOf("${getString(R.string.current_status)}：${getAppStatusDescription(getAppStatus(rule, versionCode), rule, false)}",
-            "${getString(R.string.use_api)}：${rule.useApi.toString().toUpperFirstCaseAndLowerOthers()}",
-            "${getString(R.string.api_version)}：${rule.useApi.takeIf { it }?.let { rule.apiVersion } ?: getString(R.string.no_have)}",
+        val items = arrayOf(
+            "${getString(R.string.current_status)}：${
+                getAppStatusDescription(
+                    getAppStatus(
+                        rule,
+                        versionCode
+                    ), rule, false
+                )
+            }",
+            "${getString(R.string.use_api)}：${
+                rule.useApi.toString().toUpperFirstCaseAndLowerOthers()
+            }",
+            "${getString(R.string.api_version)}：${
+                rule.useApi.takeIf { it }?.let { rule.apiVersion } ?: getString(R.string.no_have)
+            }",
             "${getString(R.string.start_version_code)}：${rule.startVersionCode}",
             "${getString(R.string.end_version_code)}：${rule.endVersionCode}",
             "${getString(R.string.exclude_versions)}：${rule.excludeVersions.ifEmpty { getString(R.string.no_have) }}",
-            "${getString(R.string.get_lyric_type)}：${rule.useApi.takeIf { !it }?.let { rule.getLyricType.lyricType() } ?: getString(R.string.api_pattern)}",
+            "${getString(R.string.get_lyric_type)}：${
+                rule.useApi.takeIf { !it }
+                    ?.let { rule.getLyricType.lyricType() } ?: getString(R.string.api_pattern)
+            }",
             "${getString(R.string.remarks)}：${rule.remarks.ifEmpty { getString(R.string.no_have) }}"
         )
         MaterialAlertDialogBuilder(requireContext()).apply {
@@ -144,7 +184,8 @@ class AppRulesFragment : Fragment() {
                 appAdapter.addData(it)
             }
             goMainThread {
-                binding.toolbar.title = "${getString(R.string.app_rules_fragment_label)} (${appRulesViewModel.dataLists.size})"
+                binding.toolbar.title =
+                    "${getString(R.string.app_rules_fragment_label)} (${appRulesViewModel.dataLists.size})"
             }
         } else {
             val dialog = MaterialProgressDialog(requireContext()).apply {
@@ -154,11 +195,34 @@ class AppRulesFragment : Fragment() {
             }
             Thread {
                 val installedPackages = manager.getInstalledPackages(0)
+
+                if (installedPackages.isEmpty() || installedPackages.size < 10) {
+                    goMainThread {
+                        context?.let {
+                            MaterialAlertDialogBuilder(it)
+                                .setTitle(R.string.app_no_permissions)
+                                .setMessage(R.string.app_get_permissions)
+                                .setPositiveButton(R.string.app_go_setting) { _, _ ->
+                                    val intent =
+                                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                    val uri = Uri.fromParts("package", "cn.lyric.getter", null)
+                                    intent.setData(uri)
+                                    startActivity(intent)
+
+                                }
+                                .setNegativeButton(R.string.cancel, null)
+                                .show()
+                        }
+                        dialog.dismiss()
+                    }
+                    return@Thread
+                }
                 val appInfosPackNames = installedPackages.map { it.packageName }
                 appRules.forEach { appRule ->
                     var appInfos: AppInfos? = null
                     if (appInfosPackNames.contains(appRule.packageName)) {
-                        val packageInfo = installedPackages.firstOrNull { it.packageName == appRule.packageName }
+                        val packageInfo =
+                            installedPackages.firstOrNull { it.packageName == appRule.packageName }
                         packageInfo?.let {
                             val applicationInfo = packageInfo.applicationInfo ?: return@let
                             appInfos = AppInfos(
@@ -170,17 +234,26 @@ class AppRulesFragment : Fragment() {
                             )
                         }
                     } else if (config.showAllRules) {
-                        val packageInfo = installedPackages.firstOrNull { it.packageName == "com.android.systemui" }
+                        val packageInfo =
+                            installedPackages.firstOrNull { it.packageName == "com.android.systemui" }
                         packageInfo?.let {
                             val applicationInfo = packageInfo.applicationInfo ?: return@let
-                            appInfos = AppInfos(appRule.name, applicationInfo.loadIcon(packageManager), appRule.packageName, 0, appRule, false)
+                            appInfos = AppInfos(
+                                appRule.name,
+                                applicationInfo.loadIcon(packageManager),
+                                appRule.packageName,
+                                0,
+                                appRule,
+                                false
+                            )
                         }
                     }
                     goMainThread { appInfos?.let { appAdapter.addData(it) } }
                 }
                 dialog.dismiss()
                 goMainThread {
-                    binding.toolbar.title = "${getString(R.string.app_rules_fragment_label)} (${appAdapter.dataLists.size})"
+                    binding.toolbar.title =
+                        "${getString(R.string.app_rules_fragment_label)} (${appAdapter.dataLists.size})"
                 }
             }.start()
         }
